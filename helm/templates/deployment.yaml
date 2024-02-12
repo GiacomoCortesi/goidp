@@ -1,0 +1,149 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "goidp.fullname" . }}
+  labels:
+    {{- include "goidp.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "goidp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "goidp.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "goidp.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "goidp.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: "wait-db"
+          image: {{ include "goidp.initContainerImage" . }}
+          command: [ "sh", "-c", "until nc -w 1 {{ .Values.database.dbHost }} {{ .Values.database.dbPort }}; do echo -E \"waiting for database to be available\" $(date); sleep 1; done" ]
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "goidp.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - name: idp-dbpass
+              mountPath: {{ .Values.database.dbSecretMountPath }}
+            - name: idp-pubkeys-vol
+              mountPath: {{ .Values.jwt.trustedKeysMountPath }}
+          env:
+            - name: DB_NAME
+              value: "{{ .Values.database.dbName }}"
+            - name: DB_USER
+              value: "{{ .Values.database.dbUser }}"
+            - name: DB_PASS_FILE
+              value: "{{ .Values.database.dbSecretMountPath }}/password"
+            - name: DB_HOST
+              value: "{{ .Values.database.dbHost }}"
+            - name: DB_PORT
+              value: "{{ .Values.database.dbPort }}"
+            - name: DB_SSL_MODE
+              value: "{{ .Values.database.dbSSLMode }}"
+            - name: DB_TIMEZONE
+              value: "{{ .Values.database.dbTimezone }}"
+            - name: DB_CLEANUP_PERIOD
+              value: "{{ .Values.database.dbCleanupPeriod }}"
+            - name: DB_MAX_EVENTS_NUMBER
+              value: "{{ .Values.database.dbMaxEventsNumber }}"
+            - name: DB_CHARSET
+              value: "{{ .Values.database.dbCharset }}"
+            - name: DB_PARSE_TIME
+              value: "{{ .Values.database.dbParseTime }}"
+            - name: DB_SHOW_SQL
+              value: "{{ .Values.database.dbShowSql }}"
+            - name: JWT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.jwt.secretName }}
+                  key: {{ .Values.jwt.publicKeySecretKey }}
+                  optional: false
+            - name: JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.jwt.secretName }}
+                  key: {{ .Values.jwt.privateKeySecretKey }}
+                  optional: false
+            - name: JWT_ACCESS_EXPIRE_TIME
+              value: "{{ .Values.jwt.jwtAccessExpireTime }}"
+            - name: JWT_REFRESH_EXPIRE_TIME
+              value: "{{ .Values.jwt.jwtRefreshExpireTime }}"
+            - name: JWT_REFRESH
+              value: "{{ .Values.jwt.jwtRefresh }}"
+            - name: JWT_USE_KEY
+              value: "{{ .Values.jwt.jwtUseKey }}"
+            - name: APP_HOST
+              value: "{{ .Values.app.host }}"
+            - name: APP_PORT
+              value: "{{ .Values.app.port }}"
+            - name: APP_WRITE_TIMEOUT
+              value: "{{ .Values.app.writeTimeout }}"
+            - name: APP_READ_TIMEOUT
+              value: "{{ .Values.app.readTimeout }}"
+            - name: APP_IDLE_TIMEOUT
+              value: "{{ .Values.app.idleTimeout }}"
+            - name: APP_LOG_LEVEL
+              value: "{{ .Values.app.logLevel }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.app.port }}
+              protocol: TCP
+          {{- if .Values.readinessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path:  "{{ .Values.livenessProbe.httpPath }}"
+              port: {{ .Values.service.port }}
+              httpHeaders:
+              {{- toYaml .Values.readinessProbe.httpHeaders | nindent 16 }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds  }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds  }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path:  "{{ .Values.readinessProbe.httpPath }}"
+              port: {{ .Values.service.port }}
+              httpHeaders:
+              {{- toYaml .Values.readinessProbe.httpHeaders | nindent 16 }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds  }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds  }}
+
+
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: goidp-rsa
+          secret:
+            secretName: {{ include "goidp.goidprsa" . }}
+        - name: idp-dbpass
+          secret:
+            secretName: {{ include "goidp.secretname" . }}
+        - name: idp-pubkeys-vol
+          secret:
+            secretName: {{ include "goidp.secretkeysname" . }}
+            optional: true
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

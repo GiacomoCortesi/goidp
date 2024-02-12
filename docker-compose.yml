@@ -1,0 +1,84 @@
+version: '3.1'
+
+services:
+  backend:
+    container_name: idp-backend
+    image: docker.io/idp:${DOCKER_TAG-local}
+    build:
+      context: .
+    ports:
+      - ${APP_PORT:-8889}:${APP_PORT:-8889}
+    restart: always
+    environment:
+      DB_NAME: ${DB_NAME:-idp}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS_FILE: ${DB_PASS_FILE:-/run/secrets/db_secret}
+      DB_SSL_MODE: ${DB_SSL_MODE:-disable}
+      DB_TIMEZONE: ${DB_TIMEZONE:-UTC}
+      DB_HOST: ${DB_HOST:-idp-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_CHARSET: ${DB_CHARSET:-utf8}
+      DB_PARSE_TIME: ${DB_PARSE_TIME:-True}
+      DB_SHOW_SQL: ${DB_SHOW_SQL:-True}
+      # JWT_SECRET: ${JWT_SECRET:-jwtcrazysecuresecret}
+      DB_CLEANUP_PERIOD: ${DB_CLEANUP_PERIOD:-0 2 * * *}
+      DB_MAX_EVENTS_NUMBER: ${DB_MAX_EVENTS_NUMBER:-100}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-/run/secrets/jwt_public}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-/run/secrets/jwt_private}
+      JWT_PUBLIC_KEYS_PATH: ${JWT_PUBLIC_KEYS_PATH-/run/pubkeys}
+      JWT_ACCESS_EXPIRE_TIME: ${JWT_ACCESS_EXPIRE_TIME:-5m}
+      JWT_REFRESH_EXPIRE_TIME: ${JWT_REFRESH_EXPIRE_TIME:-2400m}
+      JWT_REFRESH: ${JWT_REFRESH-True}
+      JWT_USE_KEY: ${JWT_USE_KEY-True}
+      APP_HOST: ${APP_HOST:-0.0.0.0}
+      APP_PORT: ${APP_PORT:-8889}
+      APP_WRITE_TIMEOUT: ${APP_WRITE_TIMEOUT:-15}
+      APP_READ_TIMEOUT: ${APP_READ_TIMEOUT:-15}
+      APP_IDLE_TIMEOUT: ${APP_IDLE_TIMEOUT:-60}
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL:-debug}
+      APP_BUILD: ${APP_BUILD-local}
+      APP_NAME: ${APP_NAME-idp}
+      CHART_VERSION: ${CHART_VERSION-0.0.0}
+      APP_VERSION: ${APP_VERSION-local}
+      API_VERSION: ${API_VERSION-v1.0}
+    secrets:
+      - jwt_public
+      - jwt_private
+      - db_secret
+    volumes:
+      - type: bind
+        source: ${PUBLIC_KEYS_HOST_PATH:-/etc/pki/pubkeys}
+        target: ${PUBLIC_KEYS_PATH-/run/pubkeys}
+
+  db:
+    container_name: idp-db
+    image: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD_FILE: ${DB_PASS_FILE:-/run/secrets/db_secret}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_DB: ${DB_NAME:-idp}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    secrets:
+      - db_secret
+
+  adminer:
+    container_name: idp-db-adminer
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+
+volumes:
+  dbdata:
+
+secrets:
+  jwt_public:
+    file: ${JWT_PUBLIC_FILE:-/etc/pki/jwt/public.pem}
+  jwt_private:
+    file: ${JWT_PRIVATE_FILE:-/etc/pki/jwt/private.pem}
+  db_secret:
+    file: ${DB_SECRET_FILE:-/etc/pki/db/secret}

@@ -1,0 +1,8 @@
+.env
+.idea
+.vscode
+helm/charts/
+.air.live.toml
+private.pem
+public.pem
+secret

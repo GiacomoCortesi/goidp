@@ -1,0 +1,23 @@
+FROM docker.io/golang:1.18.1-alpine3.14
+
+ENV CGO_ENABLED=0
+
+ARG APP_NAME
+ARG APP_VERSION
+ARG APP_BUILD
+ARG API_VERSION
+ARG CHART_VERSION
+
+COPY idp /app
+
+WORKDIR /app
+
+COPY .air.debug.toml .air.toml
+
+RUN go mod tidy \
+    && go mod download
+
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+RUN go install github.com/cosmtrek/air@latest
+
+ENTRYPOINT ["air"]

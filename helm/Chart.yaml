@@ -1,0 +1,16 @@
+apiVersion: v2
+name: goidp
+description: JWT-based identity provider microservice
+type: application
+version: 0.0.0
+appVersion: "0.0.0"
+
+dependencies:
+  - condition: postgresql.enabled
+    name: postgresql
+    repository: https://charts.bitnami.com/bitnami
+    version: 12.0.0
+
+maintainers:
+  - email: giacomo.cortesi1993@gmail.com
+    name: Giacomo Cortesi

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "goidp.fullname" . }}-test-connection"
+  labels:
+    {{- include "goidp.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: "{{ .Values.helmTest.image.registry }}{{ .Values.helmTest.image.repository }}:{{ .Values.helmTest.image.tag }}"
+      command: ['wget']
+      args: ['{{ include "goidp.fullname" . }}:{{ .Values.service.port }}','--headers="Content-Type: application/vnd.api+json"']
+  restartPolicy: Never

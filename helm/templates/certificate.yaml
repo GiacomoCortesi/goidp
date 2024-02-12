@@ -1,0 +1,34 @@
+{{/*
+This file creates a Kubernetes secret by way of the cert-manager CRD
+- If .Values.jwt.certManager.enabled is false then we skip this file.
+- If the secret has already been defined in the namespace then we also
+  skip this step, which preserves the existing default behavior of
+  script-based secret generation
+Otherwise we gather the correct api version for the current cert manager's
+installation and a conf. file for the certificate creation gets created.
+ */}}
+{{- if .Values.jwt.certManager.enabled }}
+{{- if not (lookup "v1" "Secret" .Release.Namespace .Values.jwt.secretName ) }}
+apiVersion:  {{ include "certManager.certApi" . }}
+kind: Certificate
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Values.jwt.certManager.certName }}
+spec:
+  secretName: {{ .Values.jwt.secretName }}
+  commonName: goidp
+{{- if eq ( .Capabilities.APIVersions.Has "cert-manager.io/v1" ) true }}
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+    size: 2048
+{{- else if eq ( .Capabilities.APIVersions.Has "cert-manager.io/v1alpha3" ) true }}
+  keySize: 2048
+  keyAlgorithm: rsa
+  keyEncoding: pkcs8
+{{- end }}
+  issuerRef:
+    name: {{ .Values.jwt.certManager.issuerName }}
+    kind: Issuer
+{{- end }}
+{{- end }}

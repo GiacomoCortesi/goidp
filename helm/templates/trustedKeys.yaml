@@ -1,0 +1,11 @@
+{{- if .Values.jwt.trustedKeys }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "goidp.secretkeysname" . }}
+
+type: kubernetes.io/generic
+data:
+{{ .Values.jwt.trustedKeys | toYaml | indent 4}}
+
+{{- end }}

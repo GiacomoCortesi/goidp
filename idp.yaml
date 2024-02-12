@@ -1,0 +1,462 @@
+---
+# The validation of the schema can be done by running:
+# docker run -it \
+#        -p 8080:8080\
+#        -e "REJECT_LOCAL=false" \
+#        -e "REJECT_REDIRECT=false" \
+#        --name swagger-validator-v2 swaggerapi/swagger-validator-v2:v2.1.0
+#
+# When up and running issue yamllint and CURL command to validate the schema:
+#
+# yamllint idp.yaml && \
+# curl -vvv http://localhost:8080/validator/debug \
+#        -H 'accept: application/yaml' \
+#        -H 'Content-Type: application/yaml' \
+#        -d"`cat idp.yaml`"
+#
+# Once passing generate the HTML with:
+# docker run --rm -v ${PWD}:/local swaggerapi/swagger-codegen-cli-v3 \
+#                                    generate \
+#                                    -i /local/idp.yaml \
+#                                    -l html \
+#                                    -o /local/out/html
+#
+# As an alterntive just run the editor and copy and paste this file into it:
+# docker run -p 7999:8080 swaggerapi/swagger-editor
+openapi: 3.0.2
+info:
+  description: Identity provider
+  title: JWT Identity Provider
+  version: '1.0'
+servers:
+  - url: "{serverURL}"
+    description: provide your server URL
+    variables:
+      serverURL:
+        default: http://localhost:8000/
+        description: path for server
+externalDocs:
+  description: Read more about {json:api} here
+  url: https://jsonapi.org/
+paths:
+  /versions:
+    get:
+      summary: API version information
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/versions.get.success'
+  /v1.0/session:
+    post:
+      summary: Allocates a new session token
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/sessions.post.request'
+      responses:
+        '200':
+          description: Access token successfully allocated
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/sessions.post.response'
+        '400':
+          description: Bad Request
+        '403':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
+    delete:
+      summary: Noop
+      responses:
+        '200':
+          description: Success
+  /v1.0/renew:
+    post:
+      summary: Renew token
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/renew.post.request'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/renew.post.response'
+        '403':
+          description: Wrong user
+  /v1.0/user:
+    get:
+      summary: Retrieve the list of all users
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/user.get.response'
+              examples:
+                success:
+                  $ref: '#/components/examples/users'
+    post:
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/user.post.request'
+            examples:
+              success:
+                $ref: '#/components/examples/user.post.request'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/user.post.response'
+              examples:
+                success:
+                  $ref: '#/components/examples/user.post.response'
+        '400':
+          description: Validation failure
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/error'
+  /v1.0/user/{id}:
+    get:
+      summary: Retrieve information regarding a given user id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/user.id.get.response'
+        '404':
+          description: User ID not found
+    delete:
+      summary: Delete user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Malformed request
+        '404':
+          description: User not found
+    patch:
+      summary: Edit information regarding a given user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/user.patch.request'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/user.patch.response'
+        '400':
+          description: Malformed request
+        '404':
+          description: User not found
+  /v1.0/system:
+    get:
+      summary: System information
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/system.response'
+  /v1.0/event:
+    get:
+      summary: List of events
+      responses:
+        '200':
+          description: OK
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/events.get.response'
+              examples:
+                success:
+                  $ref: '#/components/examples/events'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    versions.get.success:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/versions.elements'
+    versions.elements:
+      type: array
+      items:
+        type: object
+        properties:
+          type:
+            type: string
+          id:
+            type: string
+          attributes:
+            type: object
+            properties:
+              deprecated:
+                type: boolean
+              version:
+                type: string
+    sessions.post.request:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              default: 'session'
+            attributes:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+    sessions.post.response:
+      type: object
+      properties:
+        data:
+          type: string
+          default: null
+        meta:
+          type: object
+          properties:
+            access_token:
+              type: string
+            renew_token:
+              type: string
+    renew.post.request:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              default: 'renew'
+            id:
+              type: string
+            attributes:
+              type: object
+              properties:
+                renew_token:
+                  type: string
+    renew.post.response:
+      type: object
+      properties:
+        data:
+          type: string
+          default: null
+        meta:
+          type: object
+          properties:
+            access_token:
+              type: string
+            renew_token:
+              type: string
+    user.get.response:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/user.list'
+    user.post.request:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/user.element'
+    user.post.response:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/user.element'
+    user.id.get.response:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/user.element.id'
+    user.patch.request:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/user.element.id'
+    user.patch.response:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/user.element.id'
+    user.list:
+      type: array
+      items:
+        $ref: '#/components/schemas/user.element'
+    user.element.id:
+      allOf:
+        - $ref: '#/components/schemas/user.element'
+        - type: object
+          properties:
+            id:
+              type: string
+    user.element:
+      type: object
+      properties:
+        type:
+          type: string
+          default: 'user'
+        attributes:
+          type: object
+          properties:
+            roles:
+              type: array
+              items:
+                type: string
+            username:
+              type: string
+            version:
+              type: integer
+    system.response:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          attributes:
+            type: object
+            properties:
+              app_build:
+                type: string
+              app_name:
+                type: string
+              chart_version:
+                type: string
+              app_version:
+                type: string
+              api_version:
+                type: string
+    events.get.response:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/events.event'
+        meta:
+          $ref: '#/components/schemas/events.meta'
+    events.meta:
+      type: object
+      properties:
+        meta:
+          type: object
+          properties:
+            summary:
+              type: object
+              properties:
+                severy_counts:
+                  type: object
+                  properties:
+                    cleared:
+                      type: integer
+                    critical:
+                      type: integer
+                    indeterminate:
+                      type: integer
+                    major:
+                      type: integer
+                    minor:
+                      type: integer
+                    warning:
+                      type: integer
+            total_pages:
+              type: integer
+    events.event:
+      type: object
+      properties:
+        type:
+          type: string
+          default: "event"
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            activated:
+              type: string
+            authn_domain:
+              type: string
+            description:
+              type: string
+            modified:
+              type: string
+            severity:
+              type: string
+            username:
+              type: string
+    error:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+  examples:
+    users:
+      summary: Users
+      value: '{"data":[{"type":"user","id":"1","attributes":{"roles":["ADMIN"],"username":"admin","version":1}},{"type":"user","id":"2","attributes":{"roles":["HELPDESK"],"username":"losersa","version":1}}],"meta":{"session_expires":{}}}'
+    user.post.request:
+      summary: Create user
+      value: '{"data":{"type":"user","attributes":{"username":"postexample","password":"pwdP00@00","roles":["HELPDESK","MONITOR"]}}}'
+    user.post.response:
+      summary: Create use response
+      value: '{"data":{"type":"user","id":"3","attributes":{"roles":["HELPDESK","MONITOR","username":"postexample","version":1}}}'
+    events:
+      summary: Events
+      value: '{ "data": [ { "type": "event", "id": "283", "attributes": { "activated": "2023-06-23T07:23:59Z","authn_domain": "", "description": "Deleted user: pietroaa", "modified": "2023-06-23T07:23:59Z","severity": "cleared", "username": "pietroaa" } }, { "type": "event", "id": "284", "attributes": { "activated": "2023-06-23T07:24:59Z","authn_domain": "", "description": "Deleted user: pietroaaa", "modified": "2023-06-23T07:23:59Z","severity": "cleared", "username": "pietroaa" } } ], "meta": { "summary": { "severity_counts": {"cleared": 10, "critical": 0, "indeterminate": 0, "major": 0, "minor": 0, "warning": 0 } },"total_pages": 1 } }'
+security:
+  - bearerAuth: []

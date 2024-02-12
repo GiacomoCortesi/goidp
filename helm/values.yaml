@@ -1,0 +1,274 @@
+# yaml-language-server: $schema=./values.schema.json
+# Default values for goidp.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+## @section Global parameters
+## Please, note that this will override the parameters, including dependencies, configured to use the global value
+##
+global:
+  ## @param global.imageRegistry Global Docker image registry
+  ##
+  imageRegistry: ""
+  ## @param global.imagePullSecrets Global Docker registry secret names as an array
+  ## e.g.
+  ## imagePullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  imagePullSecrets: []
+
+##
+## @param replicaCount Number of sftp replicas to deploy
+replicaCount: 1
+
+## goidp image version
+image:
+  ## @param image.registry goidp image registry
+  registry: "docker.io"
+  ## @param image.repository goidp image repository
+  repository: "giacomocortesi/goidp"
+  ## @param image.tag goidp image tag (immutable tags are recommended)
+  tag: "1.0.0"
+  ## @param image.pullPolicy goidp image pull policy
+  pullPolicy: "IfNotPresent"
+  ## @param image.pullSecrets goidp image pull secrets
+  pullSecrets: []
+
+
+## @section initContainer additional init container parameters
+##
+initContainer:
+  image:
+    ##
+    ## @param initContainer.image.registry container registry
+    registry: "docker.io"
+    ##
+    ## @param initContainer.image.repository container repository
+    repository: "alpine"
+    ##
+    ## @param initContainer.image.pullPolicy container pullPolicy
+    pullPolicy: "IfNotPresent"
+    ##
+    ## @param initContainer.image.tag container tag
+    tag: "3.16.1"
+
+##
+## @param nameOverride String to partially override fullname template (will maintain the release name)
+nameOverride: ""
+##
+## @param fullnameOverride String to fully override fullname template
+fullnameOverride: ""
+
+
+## @param extraEnvVars Array with extra environment variables to add to the pod
+extraEnvVars: []
+
+##
+## @section serviceAccount parameters
+serviceAccount:
+  ##
+  ## @param serviceAccount.create Specifies whether a service account should be created
+  create: false
+  ##
+  ## @param serviceAccount.annotations Annotations to add to the service account.
+  annotations: {}
+  ##
+  ## @param serviceAccount.name The name of the service account to use. If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+## @section jwt parameters
+jwt:
+  ## @param jwt.jwtAccessExpireTime JWT expiration time.
+  jwtAccessExpireTime: "5m"
+  ## @param jwt.jwtRefreshExpireTime JWT refresh espiration time.
+  jwtRefreshExpireTime: "2400m"
+  ## @param jwt.jwtRefresh Enable token refresh.
+  jwtRefresh: true
+  ## @param jwt.jwtUseKey Enable JWT.
+  jwtUseKey: true
+  ## @param jwt.trustedKeysMountPath File system location where trusted keys may be found
+  trustedKeysMountPath: "/run/pubkeys"
+  ## @param jwt.trustedKeys Array of trusted public keys.
+  trustedKeys: {}
+  ## @param jwt.secretName Name of the secret tha contains private and public key.
+  secretName: "goidp-rsa"
+  ## @param jwt.publicKeySecretKey name of key within the jwt.secretName holding the public key
+  publicKeySecretKey: "tls.crt"
+  ## @param jwt.privateKeySecretKey name of key within the jwt.secretName holding the private key
+  privateKeySecretKey: "tls.key"
+  certManager:
+    ## @param jwt.certManager.enabled If true, use the Kubernetes Cert-Manager for certificate creation
+    enabled: false
+    ## @param jwt.certManager.issuerName If using Cert-Manager, what issuer should be used
+    issuerName: issuer-selfsigned-issuer
+    ## @param jwt.certManager.certName If using Cert-Manager, what certificate name should be used
+    certName: goidp-certificate
+
+## @section database parameters
+database:
+  ## @param database.dbName Database name to use/create.
+  dbName: &dbName "oranmgr"
+  ## @param database.dbHost Host/Service where the database is listening on.
+  dbHost: &dbHost "goidp-postgres"
+  ## @param database.dbPort Port where the database is listening on.
+  dbPort: 5432
+  ## @param database.dbSSLMode Database SSL mode
+  dbSSLMode: &dbSSLMode "disable"
+  ## @param database.dbTimezone Database time standard.
+  dbTimezone: &dbTimezone "UTC"
+  ## @param database.dbCleanupPeriod Database cleanup period specified in cron annotation.
+  dbCleanupPeriod: "0 2 * * *"
+  ## @param database.dbMaxEventsNumber Max events threshold on DB (chron-job is activated when events num. > th)
+  dbMaxEventsNumber: 100
+  ## @param database.dbUser Database user name.
+  dbUser: &dbUser "oranmgr"
+  ## @param database.dbPass Database user password. Auto-generated if not specified.
+  dbPass: ""
+  ## @param database.dbSecretOverride Forced name of the db secret.
+  dbSecretOverride: &dbSecretOverride "idp-password"
+  ## @param database.dbSecretMountPath Path where to mount the password of the database as secret.
+  dbSecretMountPath: "/run/secrets/dbsecret"
+  ## @param database.createSecret If enabled create db secret.
+  createSecret: true
+  ## @param database.dbCharset Database charset.
+  dbCharset: "utf8"
+  ## @param database.dbParseTime If enabled db scan DATE and DATETIME automatically
+  dbParseTime: true
+  ## @param database.dbShowSql If enabled, start the dbms in debug mode. Show every query in the logs.
+  dbShowSql: false
+
+## @section app parameters
+app:
+  ## @param app.host Identity provider service name or external endpoint.
+  host: "0.0.0.0"
+  ## @param app.port Identity provider service port.
+  port: &appPort 8889
+  ## @param app.writeTimeout Write operations timeout in seconds.
+  writeTimeout: 15
+  ## @param app.readTimeout Read operations timeout in seconds.
+  readTimeout: 15
+  ## @param app.idleTimeout Idle timeout in seconds.
+  idleTimeout: 60
+  ## @param app.logLevel Log level as a string [error,warning,info,debug]
+  logLevel: "debug"
+
+## @section service parameters
+service:
+  ## @param service.type Kubernetes service type for api service.
+  type: ClusterIP
+  ## @param service.port ggoidp HTTP port.
+  port: *appPort
+
+##
+## @param resources Resource values to add to deployment
+resources: {}
+
+##
+## @param podAnnotations A collection of custom annotations desired for the pods in the deployment
+podAnnotations: {}
+
+##
+## @param podSecurityContext Securitycontext of the pod template in the app deployment
+podSecurityContext: {}
+
+##
+## @param securityContext Securitycontext of the container template in the app deployment
+securityContext: {}
+
+## @section autoscaling
+autoscaling:
+  ##
+  ## @param autoscaling.enabled if true autoscaling is enabled
+  enabled: false
+  ##
+  ## @param autoscaling.minReplicas minimum number of pods for idp component
+  minReplicas: 1
+  ##
+  ## @param autoscaling.maxReplicas maximum number of pods for idp component
+  maxReplicas: 100
+  ##
+  ## @param autoscaling.targetCPUUtilizationPercentage percentage of CPU usage
+  targetCPUUtilizationPercentage: 80
+  ##
+  ## @param autoscaling.targetMemoryUtilizationPercentage percentage of memory usage
+  targetMemoryUtilizationPercentage: 80
+
+## @param nodeSelector Provide custom pod nodeSelector values
+nodeSelector: {}
+
+##
+## @param tolerations Provide custom pod toleration value(s)
+tolerations: []
+##
+## @param affinity Provide custom pod affinity value(s)
+affinity: {}
+
+## @section livenessProbe parameters
+livenessProbe:
+  ## @param livenessProbe.httpPath Target path for liveness probe.
+  httpPath: "/versions"
+  ## @param livenessProbe.initialDelaySeconds Delay before start the liveness probe check.
+  initialDelaySeconds: 15
+  ## @param livenessProbe.periodSeconds Number of seconds between liveness probe check.
+  periodSeconds: 30
+  ## @param livenessProbe.enabled Enable livenessProbe.
+  enabled: true
+  ## @param livenessProbe.httpHeaders [array] Headers to include in the liveness HTTP call.
+  httpHeaders:
+    - name: "Content-Type"
+      value: "application/vnd.api+json"
+
+## @section readinessProbe parameters
+readinessProbe:
+  ## @param readinessProbe.httpPath Target path for readiness probe.
+  httpPath: "/versions"
+  ## @param readinessProbe.initialDelaySeconds Delay before start the readiness probe check.
+  initialDelaySeconds: 5
+  ## @param readinessProbe.periodSeconds Number of seconds between readiness probe check.
+  periodSeconds: 5
+  ## @param readinessProbe.enabled Enable readinessProbe.
+  enabled: true
+  ## @param readinessProbe.httpHeaders [array] Headers to include in the readiness HTTP call.
+  httpHeaders:
+    - name: "Content-Type"
+      value: "application/vnd.api+json"
+
+## @section postgres sub-chart parameters
+postgresql:
+  image:
+    ## @param postgresql.image.registry Host providing the Docker registry from which to pull Postgres SQL
+    registry: "docker.io"
+    ## @param postgresql.image.repository  Repository on host from which to pull Postgres SQL
+    repository: "bitnami/postgresql"
+    ## @param postgresql.image.tag  Image tag of Postgres SQL version to pull
+    tag: "14.2.0-debian-10-r88"
+  ## @param postgresql.enabled Enable postgresql.
+  enabled: true
+  ## @param postgresql.fullnameOverride Host/Service where the database is listening on.
+  fullnameOverride: *dbHost
+  ## @param postgresql.timezone Database time standard.
+  timezone: *dbTimezone
+  tls:
+    ## @param postgresql.tls.enabled Enable TLS.
+    enabled: false
+  ## @param postgresql.ssl_mode Database SSL mode.
+  ssl_mode: *dbSSLMode
+  auth:
+    ## @param postgresql.auth.username Database user name.
+    username: *dbUser
+    ## @param postgresql.auth.existingSecret Forced name of the db secret.
+    existingSecret: *dbSecretOverride
+    ## @param postgresql.auth.database Database name to use/create.
+    database: *dbName
+  primary:
+    persistence:
+      ## @param postgresql.primary.persistence.enabled Enable DB persistence.
+      enabled: false
+
+## @skip helmTest
+##
+helmTest:
+  image:
+    registry: "docker.io"
+    repository: "busybox"
+    tag: "1.34.1"
